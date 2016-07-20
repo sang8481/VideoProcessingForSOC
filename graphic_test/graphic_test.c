@@ -39,6 +39,7 @@ static void demo(void)
 {
 	int i = 4000;
 	U16* fpga_videodata = (U16*)malloc(180 * 120 * 2);
+	U16* processed_data;
 	RGB565* pixeldata = (RGB565*)malloc(2);
 	int x = 0;
 	int y = 0;
@@ -56,10 +57,12 @@ static void demo(void)
 		//avr_rbg(fpga_videodata, pixeldata);
 		//printf("r : %d, g : %d, b : %d\n", pixeldata->r, pixeldata->g, pixeldata->b);
 		draw_fpga_video_data(fpga_videodata, 10, 200);
-		mask_filtering(fpga_videodata, mean_mask(3), 3);
+		//processed_data = mask_filtering(fpga_videodata, mean_mask(3), 3);
+		processed_data = differential_mask_filtering(fpga_videodata, sobel_mask_X(), sobel_mask_Y(), 3, 2);
+		fpga_videodata = processed_data;
+		free(processed_data);
 		draw_fpga_video_data(fpga_videodata, 10, 10);
 		flip();
-		//if (i%5 == 0) printf("i : %d\n", i);
 	}
 	free(fpga_videodata);
 	free(pixeldata);

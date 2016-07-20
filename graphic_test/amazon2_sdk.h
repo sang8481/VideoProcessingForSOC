@@ -258,9 +258,9 @@ typedef struct _tag_DrawRaw_value
 #define EXTRACT_RGB(c,r,g,b)	do{r=(U8)(c>>16);g=(U8)(c>>8);b=(U8)(c);}while(0);
 #define EXTRACT_RGB565(c,r,g,b)	do{r=(U8)(c>>11);g=(U8)((c>>5)&0x3f);b=(U8)(c & 0x1f);}while(0);
 #define MAKE_RGB565FROM888(c)		((U16)((((U16)(c>>16)&0xf8)<<8)|(((U16)(c>>8)&0xfc)<<3)|(((U16)c&0xf8)>>3)))
-#define REDIN565(p)     ((p>>11)&0x1f)
-#define BLUEIN565(p)    (p&0x1f)
-#define GREENIN565(p)   ((p>>5)&0x3f)
+#define RED_VALUE_IN565(p)     ((p>>11)&0x1f)
+#define BLUE_VALUE_IN565(p)    (p&0x1f)
+#define GREEN_VALUE_IN565(p)   ((p>>5)&0x3f)
 #define GetRedValue(C)	((C>>16)&0xff)
 #define GetGreenValue(C)	((C>>8)&0xff)
 #define GetBlueValue(C)	(C&0xff)

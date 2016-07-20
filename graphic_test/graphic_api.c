@@ -479,9 +479,9 @@ void color_ref(U16* buf, RGB565* pixel, int x, int y){
 		return;
 	}else{
         printf("pixel value : 0x%X\n", buf[(119 - y)*180 + x]);
-		pixel->b = BLUEIN565(buf[(119 - y)*180 + x]);
-        pixel->g = GREENIN565(buf[(119 - y)*180 + x]);
-		pixel->r = REDIN565(buf[(119 - y)*180 + x]);
+		pixel->b = BLUE_VALUE_IN565(buf[(119 - y)*180 + x]);
+        pixel->g = GREEN_VALUE_IN565(buf[(119 - y)*180 + x]);
+		pixel->r = RED_VALUE_IN565(buf[(119 - y)*180 + x]);
 		return;
 	}
 }
@@ -492,9 +492,9 @@ void avr_rbg(U16* buf, RGB565* pixel){
 	U32 rsum = 0, bsum = 0, gsum = 0;
 	for(y = 120-1; y >= 0; y--){
 		for(x = 0; x < 180; x++){
-			bsum += BLUEIN565(buf[y*180 + x]);
-			gsum += GREENIN565(buf[y*180 + x]);
-			rsum += REDIN565(buf[y*180 + x]);
+			bsum += BLUE_VALUE_IN565(buf[y*180 + x]);
+			gsum += GREEN_VALUE_IN565(buf[y*180 + x]);
+			rsum += RED_VALUE_IN565(buf[y*180 + x]);
 		}
 	}
 	pixel->b = bsum/(180*120);
@@ -504,27 +504,32 @@ void avr_rbg(U16* buf, RGB565* pixel){
 }
 // Usage : mask_filtering(buf, mean_mask(3), 3);
 // Dividing by summation of all array elements is required.
-void mask_filtering(U16* buf, U16* mask, int masksize){
+// Return filter-applied image pointer
+U16* mask_filtering(U16* buf, U16* mask, int masksize){
 	int width = 180;
 	int height = 120;
+	U16* new_image = (U16*)malloc(sizeof(U16)*width*height);
 	int half_masksize = masksize / 2;
 	int r, c;
+
 	for(r = 0; r < height; r++){
 	for(c = 0; c < width; c++){
 		U16 sum_of_pixel_count = 0;
 		U16 sum_of_pixel_valueR = 0;
 		U16 sum_of_pixel_valueG = 0;
 		U16 sum_of_pixel_valueB = 0;
+
 		int x, y;
 		for(y = -half_masksize; y <= half_masksize; y++){
 		for(x = -half_masksize; x <= half_masksize; x++){
+
 			int px = c + x;
 			int py = r + y;
 			// If (r+dx, c+dy) pixel is rocated in valid range
 			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
-				sum_of_pixel_valueR += REDIN565(buf[py*180 + px]);
-				sum_of_pixel_valueG += GREENIN565(buf[py*180 + px]);
-				sum_of_pixel_valueB += BLUEIN565(buf[py*180 + px]);
+				sum_of_pixel_valueR += RED_VALUE_IN565(buf[py*180 + px]);
+				sum_of_pixel_valueG += GREEN_VALUE_IN565(buf[py*180 + px]);
+				sum_of_pixel_valueB += BLUE_VALUE_IN565(buf[py*180 + px]);
 				sum_of_pixel_count++;
 				if(r == 60 && c == 100) {
 					printf("px : %d, py : %d, pR :%d, pB : %d, pG : %d\n", px, py, sum_of_pixel_valueR, sum_of_pixel_valueB, sum_of_pixel_valueG);
@@ -535,27 +540,84 @@ void mask_filtering(U16* buf, U16* mask, int masksize){
 		sum_of_pixel_valueR = (U16)(sum_of_pixel_valueR / (float)(sum_of_pixel_count));
 		sum_of_pixel_valueG = (U16)(sum_of_pixel_valueG / (float)(sum_of_pixel_count));
 		sum_of_pixel_valueB = (U16)(sum_of_pixel_valueB / (float)(sum_of_pixel_count));
-		buf[r*180 + c] = (sum_of_pixel_valueB | (sum_of_pixel_valueG<<5) | (sum_of_pixel_valueR<<11));
+		new_image[r*180 + c] = ((sum_of_pixel_valueB) | (sum_of_pixel_valueG<<5) | (sum_of_pixel_valueR<<11));
 		if(r == 60 && c == 100) {
 			printf("pcnt : %d\n", sum_of_pixel_count);
 			printf("sum_of_pixel_valueR:0x%X, sum_of_pixel_valueG:0x%X, sum_of_pixel_valueB:0x%X\n",
-				REDIN565(buf[r*180 + c]), GREENIN565(buf[r*180 + c]), BLUEIN565(buf[r*180 + c]));
+				RED_VALUE_IN565(buf[r*180 + c]), GREEN_VALUE_IN565(buf[r*180 + c]), BLUE_VALUE_IN565(buf[r*180 + c]));
 
 		}
 	}
 	}
+	return new_image; // required free() at caller function
 }
 
+U16* differential_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize, int divisor){
+	int width = 180;
+	int height = 120;
+	U16* new_image = (U16*)malloc(sizeof(U16)*width*height);
+	int half_masksize = masksize / 2;
+	int r, c;
+
+	// Sobel mask : except edges of video
+	for(r = 1; r < height - 1; r++){
+	for(c = 1; c < width - 1; c++){
+		S32 sum_of_pixel_valueX_R = 0;
+		S32 sum_of_pixel_valueX_G = 0;
+		S32 sum_of_pixel_valueX_B = 0;
+		S32 sum_of_pixel_valueY_R = 0;
+		S32 sum_of_pixel_valueY_G = 0;
+		S32 sum_of_pixel_valueY_B = 0;
+
+		int x, y;
+		U32 sumX, sumY, absXY;
+		for(y = -half_masksize; y <= half_masksize; y++){
+		for(x = -half_masksize; x <= half_masksize; x++){
+			int px = c + x;
+			int py = r + y;
+
+			// If (r+dx, c+dy) pixel is rocated in valid range
+			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
+				sum_of_pixel_valueX_R += RED_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueX_G += GREEN_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueX_B += BLUE_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
+
+				sum_of_pixel_valueY_R += RED_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY_G += GREEN_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY_B += BLUE_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
+			}
+		}
+		}
+		sumX = ((U16)(sum_of_pixel_valueX_B) | (U16)(sum_of_pixel_valueX_G<<5) | (U16)(sum_of_pixel_valueX_R<<11));
+		sumY = ((U16)(sum_of_pixel_valueY_B) | (U16)(sum_of_pixel_valueY_G<<5) | (U16)(sum_of_pixel_valueY_R<<11));
+		absXY = (U16)sqrt((double)(sumX*sumX + sumY*sumY)/divisor);
+		new_image[r*180 + c] = absXY;
+		if(r == 60 && c == 100) {
+
+			printf("xR:0x%X, xG:0x%X, xB:0x%X, yR:0x%X, yG:0x%X, yB:0x%X\nabsXY:%x\n",
+				sum_of_pixel_valueX_R,
+				sum_of_pixel_valueX_G,
+				sum_of_pixel_valueX_B,
+				sum_of_pixel_valueY_R,
+				sum_of_pixel_valueY_G,
+				sum_of_pixel_valueY_B,
+				absXY);
+
+		}
+	}
+	}
+	return new_image; // required free() at caller function
+}
 
 U16* mean_mask(int size){
-	U16* arr;
+	U16* arr = (U16*)malloc(sizeof(U16)*size);
 	memset(arr, 0, sizeof(arr)*size);
 	int i;
 	// size * size 2d matrix
 	for(i = 0; i < size*size; i++){
 		arr[i] = 1;
 	}
-	return arr;
+	return arr; // free() required at caller
 }
 
 // Gaussian mask sigma : 1.0 / size : 3x3
@@ -565,6 +627,16 @@ U16* gaussian_mask(){
 					113, 838, 113};
 	return gmask;
 } ///*************Need to be divided by 10000******************
+
+S16* sobel_mask_X(){
+	S16 smask[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+	return smask;
+}
+
+S16* sobel_mask_Y(){
+	S16 smask[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
+	return smask;
+}
 
 /*void buf_to_binaryfile(U16 *buf)
 {
