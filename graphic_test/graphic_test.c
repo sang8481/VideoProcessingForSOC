@@ -58,7 +58,7 @@ static void demo(void)
 		//printf("r : %d, g : %d, b : %d\n", pixeldata->r, pixeldata->g, pixeldata->b);
 		draw_fpga_video_data(fpga_videodata, 10, 200);
 		//processed_data = mask_filtering(fpga_videodata, mean_mask(3), 3);
-		processed_data = differential_mask_filtering(fpga_videodata, sobel_mask_X(), sobel_mask_Y(), 3, 2);
+		processed_data = sobel_mask_filtering(fpga_videodata, 3, 2);
 		fpga_videodata = processed_data;
 		free(processed_data);
 		draw_fpga_video_data(fpga_videodata, 10, 10);

@@ -552,9 +552,11 @@ U16* mask_filtering(U16* buf, U16* mask, int masksize){
 	return new_image; // required free() at caller function
 }
 
-U16* differential_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize, int divisor){
+U16* sobel_mask_filtering(U16* buf, int masksize, int divisor){
 	int width = 180;
 	int height = 120;
+	S16 mask_X[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+	S16 mask_Y[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
 	U16* new_image = (U16*)malloc(sizeof(U16)*width*height);
 	int half_masksize = masksize / 2;
 	int r, c;
@@ -578,13 +580,21 @@ U16* differential_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize,
 
 			// If (r+dx, c+dy) pixel is rocated in valid range
 			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
-				sum_of_pixel_valueX_R += RED_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueX_G += GREEN_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueX_B += BLUE_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueX_R += RED_VALUE_IN565(buf[py*180 + px])*mask_X[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueX_G += GREEN_VALUE_IN565(buf[py*180 + px])*mask_X[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueX_B += BLUE_VALUE_IN565(buf[py*180 + px])*mask_X[(y + 1)*3 + (x + 1)];
 
-				sum_of_pixel_valueY_R += RED_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueY_G += GREEN_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueY_B += BLUE_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY_R += RED_VALUE_IN565(buf[py*180 + px])*mask_Y[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY_G += GREEN_VALUE_IN565(buf[py*180 + px])*mask_Y[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY_B += BLUE_VALUE_IN565(buf[py*180 + px])*mask_Y[(y + 1)*3 + (x + 1)];
+				if (r == 60 && c == 100)printf("xR:0x%X, xG:0x%X, xB:0x%X, yR:0x%X, yG:0x%X, yB:0x%X\n",
+					sum_of_pixel_valueX_R,
+					sum_of_pixel_valueX_G,
+					sum_of_pixel_valueX_B,
+					sum_of_pixel_valueY_R,
+					sum_of_pixel_valueY_G,
+					sum_of_pixel_valueY_B
+					);
 			}
 		}
 		}
@@ -625,19 +635,21 @@ U16* gaussian_mask(){
 	U16 gmask[9] =  {113, 838, 113,
 					838, 6193, 838,
 					113, 838, 113};
-	return gmask;
+	return gmask; //// Logical error
 } ///*************Need to be divided by 10000******************
-
+/*
 S16* sobel_mask_X(){
-	S16 smask[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+	S16* smask = (S16*)malloc(sizeof(S16)*9)
+	smask = {1, 2, 1, 0, 0, 0, -1, -2, -1};
 	return smask;
 }
 
 S16* sobel_mask_Y(){
-	S16 smask[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
+	S16* smask = (S16*)malloc(sizeof(S16)*9)
+	smask = {1, 0, -1, 2, 0, -2, 1, 0, -1};
 	return smask;
 }
-
+*/
 /*void buf_to_binaryfile(U16 *buf)
 {
 	// file write using U16* buf pointer.
