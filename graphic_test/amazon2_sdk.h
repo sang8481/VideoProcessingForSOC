@@ -261,6 +261,8 @@ typedef struct _tag_DrawRaw_value
 #define RED_VALUE_IN565(p)     ((p>>11)&0x1f)
 #define BLUE_VALUE_IN565(p)    (p&0x1f)
 #define GREEN_VALUE_IN565(p)   ((p>>5)&0x3f)
+#define CLIP5BIT(p) (p < 0) ? 0 : p > 31 ? 31 : p
+#define CLIP6BIT(p) (p < 0) ? 0 : p > 63 ? 63 : p
 #define GetRedValue(C)	((C>>16)&0xff)
 #define GetGreenValue(C)	((C>>8)&0xff)
 #define GetBlueValue(C)	(C&0xff)

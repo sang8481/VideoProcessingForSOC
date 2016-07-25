@@ -502,22 +502,41 @@ void avr_rbg(U16* buf, RGB565* pixel){
 	pixel->r = rsum/(180*120);
 	return;
 }
-// Usage : mask_filtering(buf, mean_mask(3), 3);
-// Dividing by summation of all array elements is required.
-// Return filter-applied image pointer
-U16* mask_filtering(U16* buf, U16* mask, int masksize){
+
+// return allocated new image
+U16* gray_scale(U16* buf){
+	U16* grayed_image = (U16*)malloc(sizeof(U16)*180*120);
 	int width = 180;
 	int height = 120;
-	U16* new_image = (U16*)malloc(sizeof(U16)*width*height);
-	int half_masksize = masksize / 2;
+	double y_scale = 0; // Use 5-bit gray scale
 	int r, c;
+	for(r = 0; r < height; r++){
+	for(c = 0; c < width; c++){
+		y_scale =
+		 (0.299*RED_VALUE_IN565(buf[180*r + c])
+		+ 0.2935*GREEN_VALUE_IN565(buf[180*r + c])
+		+ 0.114*BLUE_VALUE_IN565(buf[180*r + c]));
+		grayed_image[180*r + c] = (U16)(((U16)y_scale<<11) | ((U16)y_scale<<6) | ((U16)y_scale));
+	}
+	}
+	return grayed_image;
+}
 
+// Usage : mask_filtering(buf, mask_type);
+// Assume gray-scaled image, 3x3 mask as input
+// Dividing by summation of all array elements is required.
+// Return filter-applied image pointer
+void mask_filtering(U16* buf, S32* mask){
+	int width = 180;
+	int height = 120;
+	U16 new_image[180*120];
+	int half_masksize = 3 / 2;
+
+	int r, c;
 	for(r = 0; r < height; r++){
 	for(c = 0; c < width; c++){
 		U16 sum_of_pixel_count = 0;
-		U16 sum_of_pixel_valueR = 0;
-		U16 sum_of_pixel_valueG = 0;
-		U16 sum_of_pixel_valueB = 0;
+		S32 sum_of_pixel_value = 0;
 
 		int x, y;
 		for(y = -half_masksize; y <= half_masksize; y++){
@@ -527,52 +546,41 @@ U16* mask_filtering(U16* buf, U16* mask, int masksize){
 			int py = r + y;
 			// If (r+dx, c+dy) pixel is rocated in valid range
 			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
-				sum_of_pixel_valueR += RED_VALUE_IN565(buf[py*180 + px]);
-				sum_of_pixel_valueG += GREEN_VALUE_IN565(buf[py*180 + px]);
-				sum_of_pixel_valueB += BLUE_VALUE_IN565(buf[py*180 + px]);
+				sum_of_pixel_value += (BLUE_VALUE_IN565(buf[py*180 + px])*mask[3*(y+1) + (x+1)]);
 				sum_of_pixel_count++;
-				if(r == 60 && c == 100) {
-					printf("px : %d, py : %d, pR :%d, pB : %d, pG : %d\n", px, py, sum_of_pixel_valueR, sum_of_pixel_valueB, sum_of_pixel_valueG);
-				}
+				//if(r == 60 && c == 100) printf("px : %d, py : %d, pixelvalue : %d\n", px, py, sum_of_pixel_value);
 			}
 		}
 		}
-		sum_of_pixel_valueR = (U16)(sum_of_pixel_valueR / (float)(sum_of_pixel_count));
-		sum_of_pixel_valueG = (U16)(sum_of_pixel_valueG / (float)(sum_of_pixel_count));
-		sum_of_pixel_valueB = (U16)(sum_of_pixel_valueB / (float)(sum_of_pixel_count));
-		new_image[r*180 + c] = ((sum_of_pixel_valueB) | (sum_of_pixel_valueG<<5) | (sum_of_pixel_valueR<<11));
-		if(r == 60 && c == 100) {
+		sum_of_pixel_value = (U16)(sum_of_pixel_value / (10000.0));
+		new_image[r*180 + c] = ((sum_of_pixel_value) | (sum_of_pixel_value<<6) | (sum_of_pixel_value<<11));
+		/*if(r == 60 && c == 100) {
 			printf("pcnt : %d\n", sum_of_pixel_count);
-			printf("sum_of_pixel_valueR:0x%X, sum_of_pixel_valueG:0x%X, sum_of_pixel_valueB:0x%X\n",
-				RED_VALUE_IN565(buf[r*180 + c]), GREEN_VALUE_IN565(buf[r*180 + c]), BLUE_VALUE_IN565(buf[r*180 + c]));
-
-		}
+			printf("sum_of_pixel_value:%d\n", BLUE_VALUE_IN565(new_image[r*180 + c]));
+		}*/
 	}
 	}
-	return new_image; // required free() at caller function
+	memcpy(buf, new_image, sizeof(U16)*180*120);
 }
 
-U16* sobel_mask_filtering(U16* buf, int masksize, int divisor){
+// Usage : sobel_mask_filtering(buf, maskX, maskY, masksize, divisor);
+// Assume gaussian_masked from gray-scaled image, two 3x3 mask as input
+// Return filter-applied image pointer
+void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize){
 	int width = 180;
 	int height = 120;
-	S16 mask_X[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
-	S16 mask_Y[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
-	U16* new_image = (U16*)malloc(sizeof(U16)*width*height);
 	int half_masksize = masksize / 2;
+	U16 new_image[180*120];
 	int r, c;
 
 	// Sobel mask : except edges of video
 	for(r = 1; r < height - 1; r++){
 	for(c = 1; c < width - 1; c++){
-		S32 sum_of_pixel_valueX_R = 0;
-		S32 sum_of_pixel_valueX_G = 0;
-		S32 sum_of_pixel_valueX_B = 0;
-		S32 sum_of_pixel_valueY_R = 0;
-		S32 sum_of_pixel_valueY_G = 0;
-		S32 sum_of_pixel_valueY_B = 0;
+		S16 sum_of_pixel_valueX = 0;
+		S16 sum_of_pixel_valueY = 0;
+		U16 absXY = 0;
 
 		int x, y;
-		U32 sumX, sumY, absXY;
 		for(y = -half_masksize; y <= half_masksize; y++){
 		for(x = -half_masksize; x <= half_masksize; x++){
 			int px = c + x;
@@ -580,76 +588,88 @@ U16* sobel_mask_filtering(U16* buf, int masksize, int divisor){
 
 			// If (r+dx, c+dy) pixel is rocated in valid range
 			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
-				sum_of_pixel_valueX_R += RED_VALUE_IN565(buf[py*180 + px])*mask_X[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueX_G += GREEN_VALUE_IN565(buf[py*180 + px])*mask_X[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueX_B += BLUE_VALUE_IN565(buf[py*180 + px])*mask_X[(y + 1)*3 + (x + 1)];
-
-				sum_of_pixel_valueY_R += RED_VALUE_IN565(buf[py*180 + px])*mask_Y[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueY_G += GREEN_VALUE_IN565(buf[py*180 + px])*mask_Y[(y + 1)*3 + (x + 1)];
-				sum_of_pixel_valueY_B += BLUE_VALUE_IN565(buf[py*180 + px])*mask_Y[(y + 1)*3 + (x + 1)];
-				if (r == 60 && c == 100)printf("xR:0x%X, xG:0x%X, xB:0x%X, yR:0x%X, yG:0x%X, yB:0x%X\n",
-					sum_of_pixel_valueX_R,
-					sum_of_pixel_valueX_G,
-					sum_of_pixel_valueX_B,
-					sum_of_pixel_valueY_R,
-					sum_of_pixel_valueY_G,
-					sum_of_pixel_valueY_B
-					);
+				sum_of_pixel_valueX += BLUE_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY += BLUE_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
+				//if (r == 100 && c == 100)printf("now masking. xvalue : %d, yvalue : %d\n", sum_of_pixel_valueX, sum_of_pixel_valueY);
 			}
 		}
 		}
-		sumX = ((U16)(sum_of_pixel_valueX_B) | (U16)(sum_of_pixel_valueX_G<<5) | (U16)(sum_of_pixel_valueX_R<<11));
-		sumY = ((U16)(sum_of_pixel_valueY_B) | (U16)(sum_of_pixel_valueY_G<<5) | (U16)(sum_of_pixel_valueY_R<<11));
-		absXY = (U16)sqrt((double)(sumX*sumX + sumY*sumY)/divisor);
-		new_image[r*180 + c] = absXY;
-		if(r == 60 && c == 100) {
+		// Clip this space.
+		absXY = CLIP5BIT((U16)sqrt(((double)sum_of_pixel_valueX*sum_of_pixel_valueX + sum_of_pixel_valueY*sum_of_pixel_valueY)/15));
+		//sum_of_pixel_valueX = (U16)CLIP5BIT((U16)sum_of_pixel_valueX);
+		//if (r == 100 && c == 100)printf("after absXY clib. 5bit in absXY : %X\n", BLUE_VALUE_IN565(absXY));
+		new_image[r*180 + c] = ((absXY) | (absXY<<6) | (absXY<<11));
 
-			printf("xR:0x%X, xG:0x%X, xB:0x%X, yR:0x%X, yG:0x%X, yB:0x%X\nabsXY:%x\n",
-				sum_of_pixel_valueX_R,
-				sum_of_pixel_valueX_G,
-				sum_of_pixel_valueX_B,
-				sum_of_pixel_valueY_R,
-				sum_of_pixel_valueY_G,
-				sum_of_pixel_valueY_B,
-				absXY);
+	}// for 'c'
+	}// for 'r'
+	memcpy(buf, new_image, sizeof(U16)*180*120);
+}
 
+
+/*Hough space
+
+180x120 x-y space to -->
+
+angle
+180
+| OOOOOOOOOOOOOOOOOOOOOO
+| OOOOOOOOOOOOOOOOOOOOOO
+| OOOOOOOOOOOOOOOOOOOOOO
+| OOOOOOOOOOOOOOOOOOOOOO
+--------(diag)--------(diag*2)----->
+
+*/
+void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
+                double resolution, U16 num_line, S16* p_radius, S16* p_theta){
+	U16 diagH = (U16)(sqrt((double)(180*180 + 120*120)));
+	U16 diag = diagH*2;
+	U16 res_step = (U16)(180/resolution); // In resolution 1, each step has 1 degree.
+	U16 num_trans = diag*res_step;
+	U16 hough_space[num_trans];
+	printf("num_trans : %d\n", num_trans);
+	int width = 180, height = 120, r, c, i, j, theta;
+
+	memset(hough_space, 0, num_trans*sizeof(U16));
+	for(r = 5; r < height - 5; r++){
+	for(c = 5; c < width - 5; c++){
+
+		// At each edge pixels
+		if(BLUE_VALUE_IN565(buf[180*r + c]) > threshold_value){
+			printf("selected pixel : y=%d, x=%d\n", r, c);
+			for(theta = 0; theta < res_step; theta++){
+				int d = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
+				hough_space[d*res_step + theta]++;
+			}
+		}
+
+	}
+	}
+
+	for(i = 0; i < diag; i++){
+		for(j = 0; j < res_step; j++){
+			printf("%d ", hough_space[180*i + j]/1000);////////////////1000????
+		}
+		printf("\n");
+	}
+
+	int line_count = 0;
+	for(i = 0; (i < num_trans) && (line_count < num_line); i++){
+		if(hough_space[i] > threshold_number){
+			printf("detected hough spot y : %d, x : %d\n", i/180, i%180);
+			p_radius[line_count] = (S16)((double)i/res_step);
+			p_theta[line_count] = (S16)(i - p_radius[line_count]*res_step)*resolution;
+			p_radius[line_count] -= diagH;
+			line_count++;
 		}
 	}
+	for(line_count = 0; line_count < num_line; line_count++){
+		printf("p_r : %d / p_t : %d\n", p_radius[line_count], p_theta[line_count]);
 	}
-	return new_image; // required free() at caller function
+
+
+
 }
 
-U16* mean_mask(int size){
-	U16* arr = (U16*)malloc(sizeof(U16)*size);
-	memset(arr, 0, sizeof(arr)*size);
-	int i;
-	// size * size 2d matrix
-	for(i = 0; i < size*size; i++){
-		arr[i] = 1;
-	}
-	return arr; // free() required at caller
-}
-
-// Gaussian mask sigma : 1.0 / size : 3x3
-U16* gaussian_mask(){
-	U16 gmask[9] =  {113, 838, 113,
-					838, 6193, 838,
-					113, 838, 113};
-	return gmask; //// Logical error
-} ///*************Need to be divided by 10000******************
-/*
-S16* sobel_mask_X(){
-	S16* smask = (S16*)malloc(sizeof(S16)*9)
-	smask = {1, 2, 1, 0, 0, 0, -1, -2, -1};
-	return smask;
-}
-
-S16* sobel_mask_Y(){
-	S16* smask = (S16*)malloc(sizeof(S16)*9)
-	smask = {1, 0, -1, 2, 0, -2, 1, 0, -1};
-	return smask;
-}
-*/
 /*void buf_to_binaryfile(U16 *buf)
 {
 	// file write using U16* buf pointer.

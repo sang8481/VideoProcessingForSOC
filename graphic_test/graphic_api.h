@@ -27,11 +27,13 @@ SURFACE* loadbmp(char* fname);
 int open_graphic(void);
 void close_graphic(void);
 
-U16* mask_filtering(U16* buf, U16* mask, int masksize);
-U16* sobel_mask_filtering(U16* buf, int masksize, int divisor);
+void mask_filtering(U16* buf, S32* mask);
+void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize);
+void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
+                double resolution, U16 num_line, S16* p_radius, S16* p_theta);
+U16* gray_scale(U16* buf);
 
 U16* mean_mask(int size);
-U16* gaussian_mask();
 void avr_rbg(U16* buf, RGB565* pixel);
 void color_ref(U16* buf, RGB565* pixel, int x, int y);
 void buf_to_binaryfile(U16* buf);
