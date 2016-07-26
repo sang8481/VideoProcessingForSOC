@@ -173,7 +173,7 @@ int draw_rotate_value(int cdx, int cdy, int ctx, int cty, float zoom, unsigned i
 	InitDY 	= y;
 	EndX	= x+dx-1;
 	EndY	= y+dy-1;
-	
+
 	InitSX  = (x+tx+ctx)*512;
 	dxSx    = cosa;
 	dxSy    = -sina;
@@ -199,7 +199,6 @@ int draw_rotate_value(int cdx, int cdy, int ctx, int cty, float zoom, unsigned i
 void read_fpga_video_data(U16* buf)
 {
 	ioctl(graphic_handle, AMAZON2_IOCTL_READ_FPGA_VIDEO_DATA, buf);
-
 }
 
 void draw_fpga_video_data(U16* buf, int dx, int dy)
@@ -241,15 +240,20 @@ int direct_camera_display_stat(void)
 	return ioctl(graphic_handle, AMAZON2_IOCTL_CAM_DISP_STAT, 0);
 }
 
+
+
 /******************************************************************
 		BMP load
 ******************************************************************/
 
 #define BI_RGB        0L
 typedef struct  {
+	// Bitmap file header, 14 bytes (2 bytes ommited)
 	U32   bfSize;
 	U32    bfReserved;
 	U32   bfOffBits;
+
+	// Bitmap info header, 20 bytes
 	U32  biSize;
 	S32   biWidth;
 	S32   biHeight;
@@ -273,6 +277,7 @@ typedef struct  {
 #define EXTRACT_READ32(startaddr,offset) (U32)(startaddr[offset] + (U32)(startaddr[offset+1]<<8) + (U32)(startaddr[offset+2]<<16) + (U32)(startaddr[offset+3]<<24))
 
 static BITMAPFILEHEADER bmpfh;
+
 
 SURFACE* LoadSurfaceInfoFromRGB(U8* bmpdata, U8 bpp, U32 w, U32 h, U32 bmpdatasize, U8* pal)
 {
@@ -311,6 +316,7 @@ SURFACE* LoadSurfaceInfoFromRGB(U8* bmpdata, U8 bpp, U32 w, U32 h, U32 bmpdatasi
 
 		return surface;
 	}
+	// 180 x 120 x 3 (bpp = 24)///////
 	else if (bpp == 24)
 	{
 		U32 screenbpp = 16;
@@ -393,7 +399,7 @@ SURFACE* loadbmp(char* fname)
 		if (bmpfh.biBitCount == 4)
 		{
 			pal = (U8*)malloc(64);
-			fread( pal,1, 64, fp);
+			fread(pal,1, 64, fp);
 		}
 		else
 		{
@@ -459,3 +465,291 @@ void close_graphic(void)
 	if (graphic_handle != -1)
 		close(graphic_handle);
 }
+
+////////////////////////////////////////////////////////////////////////
+
+// Assume 180x120x16bit pixel
+void color_ref(U16* buf, RGB565* pixel, int x, int y){
+	// Clip
+	if(x < 0 || x >= 180){
+		printf("pixel index out of range - X:%d\n", x);
+		return;
+	}else if (y < 0 || y >= 120){
+		printf("pixel index out of range - Y:%d\n", y);
+		return;
+	}else{
+        printf("pixel value : 0x%X\n", buf[(119 - y)*180 + x]);
+		pixel->b = BLUE_VALUE_IN565(buf[(119 - y)*180 + x]);
+        pixel->g = GREEN_VALUE_IN565(buf[(119 - y)*180 + x]);
+		pixel->r = RED_VALUE_IN565(buf[(119 - y)*180 + x]);
+		return;
+	}
+}
+
+// Assume 180x120x16bit pixel
+void avr_rbg(U16* buf, RGB565* pixel){
+	int x, y;
+	U32 rsum = 0, bsum = 0, gsum = 0;
+	for(y = 120-1; y >= 0; y--){
+		for(x = 0; x < 180; x++){
+			bsum += BLUE_VALUE_IN565(buf[y*180 + x]);
+			gsum += GREEN_VALUE_IN565(buf[y*180 + x]);
+			rsum += RED_VALUE_IN565(buf[y*180 + x]);
+		}
+	}
+	pixel->b = bsum/(180*120);
+	pixel->g = gsum/(180*120*2);
+	pixel->r = rsum/(180*120);
+	return;
+}
+
+// return allocated new image
+U16* gray_scale(U16* buf){
+	U16* grayed_image = (U16*)malloc(sizeof(U16)*180*120);
+	int width = 180;
+	int height = 120;
+	double y_scale = 0; // Use 5-bit gray scale
+	int r, c;
+	for(r = 0; r < height; r++){
+	for(c = 0; c < width; c++){
+		y_scale =
+		 (0.299*RED_VALUE_IN565(buf[180*r + c])
+		+ 0.2935*GREEN_VALUE_IN565(buf[180*r + c])
+		+ 0.114*BLUE_VALUE_IN565(buf[180*r + c]));
+		grayed_image[180*r + c] = (U16)(((U16)y_scale<<11) | ((U16)y_scale<<6) | ((U16)y_scale));
+	}
+	}
+	return grayed_image;
+}
+
+// Usage : mask_filtering(buf, mask_type);
+// Assume gray-scaled image, 3x3 mask as input
+// Dividing by summation of all array elements is required.
+// Return filter-applied image pointer
+void mask_filtering(U16* buf, S32* mask){
+	int width = 180;
+	int height = 120;
+	U16 new_image[180*120];
+	int half_masksize = 3 / 2;
+
+	int r, c;
+	for(r = 0; r < height; r++){
+	for(c = 0; c < width; c++){
+		U16 sum_of_pixel_count = 0;
+		S32 sum_of_pixel_value = 0;
+
+		int x, y;
+		for(y = -half_masksize; y <= half_masksize; y++){
+		for(x = -half_masksize; x <= half_masksize; x++){
+
+			int px = c + x;
+			int py = r + y;
+			// If (r+dx, c+dy) pixel is rocated in valid range
+			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
+				sum_of_pixel_value += (BLUE_VALUE_IN565(buf[py*180 + px])*mask[3*(y+1) + (x+1)]);
+				sum_of_pixel_count++;
+				//if(r == 60 && c == 100) printf("px : %d, py : %d, pixelvalue : %d\n", px, py, sum_of_pixel_value);
+			}
+		}
+		}
+		sum_of_pixel_value = (U16)(sum_of_pixel_value / (10000.0));
+		new_image[r*180 + c] = ((sum_of_pixel_value) | (sum_of_pixel_value<<6) | (sum_of_pixel_value<<11));
+		/*if(r == 60 && c == 100) {
+			printf("pcnt : %d\n", sum_of_pixel_count);
+			printf("sum_of_pixel_value:%d\n", BLUE_VALUE_IN565(new_image[r*180 + c]));
+		}*/
+	}
+	}
+	memcpy(buf, new_image, sizeof(U16)*180*120);
+}
+
+// Usage : sobel_mask_filtering(buf, maskX, maskY, masksize, divisor);
+// Assume gaussian_masked from gray-scaled image, two 3x3 mask as input
+// Return filter-applied image pointer
+void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize){
+	int width = 180;
+	int height = 120;
+	int half_masksize = masksize / 2;
+	U16 new_image[180*120];
+	int r, c;
+
+	// Sobel mask : except edges of video
+	for(r = 1; r < height - 1; r++){
+	for(c = 1; c < width - 1; c++){
+		S16 sum_of_pixel_valueX = 0;
+		S16 sum_of_pixel_valueY = 0;
+		U16 absXY = 0;
+
+		int x, y;
+		for(y = -half_masksize; y <= half_masksize; y++){
+		for(x = -half_masksize; x <= half_masksize; x++){
+			int px = c + x;
+			int py = r + y;
+
+			// If (r+dx, c+dy) pixel is rocated in valid range
+			if((px >= 0) && (px < width) && (py >= 0) && (py < height)){
+				sum_of_pixel_valueX += BLUE_VALUE_IN565(buf[py*180 + px])*maskX[(y + 1)*3 + (x + 1)];
+				sum_of_pixel_valueY += BLUE_VALUE_IN565(buf[py*180 + px])*maskY[(y + 1)*3 + (x + 1)];
+				//if (r == 100 && c == 100)printf("now masking. xvalue : %d, yvalue : %d\n", sum_of_pixel_valueX, sum_of_pixel_valueY);
+			}
+		}
+		}
+		// Clip this space.
+		absXY = CLIP5BIT((U16)sqrt(((double)sum_of_pixel_valueX*sum_of_pixel_valueX + sum_of_pixel_valueY*sum_of_pixel_valueY)/15));
+		//sum_of_pixel_valueX = (U16)CLIP5BIT((U16)sum_of_pixel_valueX);
+		//if (r == 100 && c == 100)printf("after absXY clib. 5bit in absXY : %X\n", BLUE_VALUE_IN565(absXY));
+		new_image[r*180 + c] = ((absXY) | (absXY<<6) | (absXY<<11));
+
+	}// for 'c'
+	}// for 'r'
+	memcpy(buf, new_image, sizeof(U16)*180*120);
+}
+
+
+/*Hough space
+
+180x120 x-y space to -->
+
+angle
+180
+| OOOOOOOOOOOOOOOOOOOOOO
+| OOOOOOOOOOOOOOOOOOOOOO
+| OOOOOOOOOOOOOOOOOOOOOO
+| OOOOOOOOOOOOOOOOOOOOOO
+--------(diag)--------(diag*2)----->
+
+*/
+void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
+                double resolution, U16 num_line, S16* p_radius, U16* p_theta){
+	U16 diagH = (U16)(sqrt((double)(180*180 + 120*120)));
+	U16 diag = diagH*2;
+	U16 res_step = (U16)(180/resolution); // In resolution 1, each step has 1 degree.
+	U16 num_trans = diag*res_step;
+	U16 hough_space[num_trans];
+	int width = 180, height = 120, r, c, i;
+	U16 theta;
+	memset(hough_space, 0, num_trans*sizeof(U16));
+
+	for(r = 5; r < height - 5; r++){
+	for(c = 5; c < width - 5; c++){
+
+		// At each edge pixels
+		if(BLUE_VALUE_IN565(buf[180*r + c]) > threshold_value){
+			//printf("selected pixel : y=%d, x=%d\n", r, c);
+			for(theta = 0; theta < 180; theta += (U16)resolution){
+				int d = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
+				hough_space[d*res_step + theta]++;
+				//printf("theta%d : vote in index %d\n", theta, d*res_step+theta);
+			}
+		}
+
+	}
+	}
+/*
+	for(i = 0; i < diag; i++){
+		for(j = 0; j < res_step; j++){
+			printf("%d ", hough_space[res_step*i + j]);////////////////1000????
+		}
+		printf("\n");
+	}
+*/
+	int line_count = 0;
+	for(i = 0; ((i < num_trans) && (line_count < num_line)); i++){
+		if(hough_space[i] > threshold_number){
+
+			p_radius[line_count] = (S16)((double)i/res_step);
+			p_theta[line_count] = (i - p_radius[line_count]*res_step)*resolution;
+			p_radius[line_count] -= diagH;
+			printf("line detected. r : %d / theta : %d\n", p_radius[line_count], p_theta[line_count]);
+			line_count++;
+		}
+	}
+	printf("\n");
+
+	while(line_count--){
+		draw_line(buf, p_radius[line_count], p_theta[line_count]);
+	}
+
+	for(line_count = 0; line_count < num_line; line_count++){
+		printf("line no. %d  p_r : %d / p_t : %d\n", line_count, p_radius[line_count], p_theta[line_count]);
+	}
+
+
+
+}
+// a = sin(theta)/cos(theta)
+void draw_line(U16* buf, S16 r, U16 theta){
+	S16 x, y;
+	U16 blue = 0x1f;
+	if(theta == 90){
+		return;
+	}
+	for(x = 0; x < 180; x++){
+		y = (S16)(-(mysin(theta)/mycos(theta))*x + r/mycos(theta));
+		if (x%20 ==0) {
+			printf("y : %d\n", y);
+		}
+		if(y >= 0 && y < 120) {
+			buf[180*y + x] = blue;
+		}
+	}
+	printf("----- r : %d, theta : %d\n", r, theta);
+}
+
+
+
+/*void buf_to_binaryfile(U16 *buf)
+{
+	// file write using U16* buf pointer.
+	// save and open binaries. need compare with bmp pixeel values
+	FILE *fp;
+	if ((fp = fopen("samplebin", "wt")) == NULL)
+	{
+		printf("file open failed");
+	}
+	else
+	{
+		fwrite((void*)buf, 1, 120*180*2, fp);
+		//printf("sizeof(buf) = %d", sizeof(buf));
+		fclose(fp);
+		printf("file is written. file size : %d\n", 180*120*2);
+	}
+}
+char* fpgabuf_to_bmpfile(U16 *buf){
+	FILE *fp;
+	char fname[10] = "sample.bmp";
+	BITMAPFILEHEADER header;
+	int i;
+
+	fp = fopen(fname, "wb");
+	U16 biType[1] = {0x4d42};	// "BM"
+
+	header.bfSize = sizeof(BITMAPFILEHEADER)+2 + 120*180*2;
+	header.bfReserved = 0;
+	header.bfOffBits = sizeof(BITMAPFILEHEADER)+2;
+
+	header.biSize = 40;
+	header.biWidth = 180;
+	header.biHeight = 120;
+	header.biPlanes = 1;
+	header.biBitCount = 16;
+	header.biCompression = 0;
+	header.biSizeImage = 180*120*2;
+	header.biXPelsPerMeter = 2834;
+	header.biYPelsPerMeter = 2834;
+	header.biClrUsed = 0;
+	header.biClrImportant = 0;
+
+	fwrite((void*)biType, 1, sizeof(U16), fp);
+	fwrite(&header, 1, sizeof(BITMAPFILEHEADER), fp);
+	fwrite((void*)buf, 1, 120*180*2, fp);
+	fclose(fp);
+	return fname;
+}
+
+
+
+
+SURFACE* fpgabuf_to_surface(U16 *buf){
+	return NULL;
+}*/

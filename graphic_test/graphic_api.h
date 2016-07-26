@@ -17,11 +17,27 @@ void read_fpga_video_data(U16* buf);
 void draw_fpga_video_data(U16* buf, int dx, int dy);
 void draw_fpga_video_data_full(U16* buf);
 void draw_img_from_buffer(U16* buf, int cdx, int cdy, int ctx, int cty, float zoom, int angle);
+
+
 void direct_camera_display_on(void);
 void direct_camera_display_off(void);
 int direct_camera_display_stat(void);
-SURFACE* loadbmp(char* fname);
 
-int open_graphic(void); 
+SURFACE* loadbmp(char* fname);
+int open_graphic(void);
 void close_graphic(void);
+
+void mask_filtering(U16* buf, S32* mask);
+void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize);
+void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
+                double resolution, U16 num_line, S16* p_radius, U16* p_theta);
+void draw_line(U16* buf, S16 r, U16 theta);
+U16* gray_scale(U16* buf);
+
+U16* mean_mask(int size);
+void avr_rbg(U16* buf, RGB565* pixel);
+void color_ref(U16* buf, RGB565* pixel, int x, int y);
+void buf_to_binaryfile(U16* buf);
+char* fpgabuf_to_bmpfile(U16* buf);
+SURFACE* fpgabuf_to_surface(U16 *buf);
 #endif //__AMAZON2_GRAPHIC_API_H__

@@ -37,24 +37,46 @@ void show_help(void)
 
 static void demo(void)
 {
-	int i = 400;
+	int i = 4000;
 	U16* fpga_videodata = (U16*)malloc(180 * 120 * 2);
-	int x = 0;
-	int y = 0;
-	printf("Demo Start\n");
+	U16* grayed_data;
+	U16* processed_data;
+	S16 maskX[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+	S16 maskY[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
+	S32 gaussian_mask[9] = {113, 838, 113, 838, 6196, 838, 113, 838, 113};
+	S16* p_radius[30];
+	U16* p_theta[30];
+	memset(p_radius, 0, 30*sizeof(S16));
+	memset(p_theta, 0, 30*sizeof(U16));
+	int scale;
+	printf("Demo Start.\n");
 	while (i--)
 	{
 		clear_screen();
-		x = rand() % 300;
-		y = rand() % 460;
-		draw_rectfill(x, y, 20, 20, MAKE_COLORREF(255, 0, 0));
-		x = rand() % 300;
-		y = rand() % 460;
-		draw_rectfill(x, y, 20, 20, MAKE_COLORREF(0, 255, 0));
+
+		// Raw fpga video data
 		read_fpga_video_data(fpga_videodata);
-		draw_fpga_video_data(fpga_videodata, 10, 10);
+
+
+		// 1. Gray scaled data
+		grayed_data = gray_scale(fpga_videodata);
+
+
+		// 2. gaussian masking from 1.
+		mask_filtering(grayed_data, gaussian_mask);
+		draw_fpga_video_data(grayed_data, 10, 10);
+
+		// 3. sobel masking from 2.
+		sobel_mask_filtering(grayed_data, maskX, maskY, 3);
+		draw_fpga_video_data(grayed_data, 10, 290);
+
+		// 4. hough transform from 3.
+		hough_lines(grayed_data, 20, 10, 10.0, 15, p_radius, p_theta);
+		draw_fpga_video_data(grayed_data, 10, 150);
+
+		//free(processed_data);
+		free(grayed_data);
 		flip();
-		printf("%d\n", i);
 	}
 	free(fpga_videodata);
 	printf("Demo End\n");
@@ -224,4 +246,3 @@ int main(int argc, char **argv)
 	close_graphic();
 	return 0;
 }
-

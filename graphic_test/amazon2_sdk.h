@@ -5,7 +5,7 @@
 
 
 #if defined(BOOL)
-#else 
+#else
 typedef int BOOL;
 #endif
 
@@ -24,12 +24,12 @@ typedef volatile unsigned int	vU32;
 typedef volatile unsigned long long	vU64;
 
 
-#ifdef TRUE	
-#undef TRUE 
+#ifdef TRUE
+#undef TRUE
 #endif
 #define TRUE 1
 
-#ifdef FALSE 
+#ifdef FALSE
 #undef FALSE
 #endif
 #define FALSE 0
@@ -93,9 +93,9 @@ typedef struct _tagrRGB
 
 typedef struct _tagRGB565
 {
-	int b : 5;
-	int g : 6;
-	int r : 5;
+	unsigned b : 5;
+	unsigned g : 6;
+	unsigned r : 5;
 } RGB565;
 
 typedef union
@@ -233,7 +233,7 @@ typedef struct _tag_DrawFPGADataArg
 	int dy;// screen y;
 } DrawFPGADataArg;
 
-typedef struct _tag_DrawRaw_value 
+typedef struct _tag_DrawRaw_value
 {
 	int InitDX;
 	int InitDY;
@@ -252,18 +252,23 @@ typedef struct _tag_DrawRaw_value
 
 #define MAKE_COLORREF(r,g,b)	(0xff<<24 | (EGL_COLOR)((((r << 8) | g) << 8) | b))//ARGB
 #define MAKE_RGB888(r,g,b)	((EGL_COLOR)((((r << 8) | g) << 8) | b))//RGB
-#define MAKE_RGB565(r,g,b)	((U16)((((U16)r&0xf8)<<8)|(((U16)g&0xfc)<<3)|(((U16)b&0xf8)>>3)))  ///< make RGB565 from r,g,b
+#define MAKE_RGB565(r,g,b)	((U16)( ( ((U16)r&0xf8) <<8 ) | (((U16)g&0xfc)<<3)|(((U16)b&0xf8)>>3)))  ///< make RGB565 from r,g,b
 #define MAKE_COLORARGB(a,r,g,b)	((EGL_COLOR)((((((a<<8) | r) << 8) | g) << 8) | b))//ARGB
 #define EXTRACT_ARGB(c,a,r,g,b)	do{a=(U8)(c>>24);r=(U8)(c>>16);g=(U8)(c>>8);b=(U8)(c>>0);}while(0);
 #define EXTRACT_RGB(c,r,g,b)	do{r=(U8)(c>>16);g=(U8)(c>>8);b=(U8)(c);}while(0);
 #define EXTRACT_RGB565(c,r,g,b)	do{r=(U8)(c>>11);g=(U8)((c>>5)&0x3f);b=(U8)(c & 0x1f);}while(0);
 #define MAKE_RGB565FROM888(c)		((U16)((((U16)(c>>16)&0xf8)<<8)|(((U16)(c>>8)&0xfc)<<3)|(((U16)c&0xf8)>>3)))
+#define RED_VALUE_IN565(p)     ((p>>11)&0x1f)
+#define BLUE_VALUE_IN565(p)    (p&0x1f)
+#define GREEN_VALUE_IN565(p)   ((p>>5)&0x3f)
+#define CLIP5BIT(p) (p < 0) ? 0 : p > 31 ? 31 : p
+#define CLIP6BIT(p) (p < 0) ? 0 : p > 63 ? 63 : p
 #define GetRedValue(C)	((C>>16)&0xff)
 #define GetGreenValue(C)	((C>>8)&0xff)
 #define GetBlueValue(C)	(C&0xff)
 
-/*#######################################################*/
-typedef enum 
+/*###################################2####################*/
+typedef enum
 {
 	AMAZON2_IOCTL_CLEAR_SCREEN=0,
 	AMAZON2_IOCTL_FLIP,
@@ -277,7 +282,7 @@ typedef enum
 
 	AMAZON2_IOCTL_DRAW_RECT_FILL,
 
-	AMAZON2_IOCTL_GET_DIRECT_CAMERA_SURFACE, //surface's pixel data is updated by H/W 
+	AMAZON2_IOCTL_GET_DIRECT_CAMERA_SURFACE, //surface's pixel data is updated by H/W
 	AMAZON2_IOCTL_READ_FPGA_VIDEO_DATA,
 	AMAZON2_IOCTL_DRAW_FPGA_VIDEO_DATA,
 	AMAZON2_IOCTL_DRAW_FPGA_VIDEO_DATA_FULL,
