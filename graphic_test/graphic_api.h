@@ -30,7 +30,8 @@ void close_graphic(void);
 void mask_filtering(U16* buf, S32* mask);
 void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize);
 void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
-                double resolution, U16 num_line, S16* p_radius, S16* p_theta);
+                double resolution, U16 num_line, S16* p_radius, U16* p_theta);
+void draw_line(U16* buf, S16 r, U16 theta);
 U16* gray_scale(U16* buf);
 
 U16* mean_mask(int size);

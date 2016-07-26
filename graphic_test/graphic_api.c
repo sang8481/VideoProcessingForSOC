@@ -620,55 +620,83 @@ angle
 
 */
 void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
-                double resolution, U16 num_line, S16* p_radius, S16* p_theta){
+                double resolution, U16 num_line, S16* p_radius, U16* p_theta){
 	U16 diagH = (U16)(sqrt((double)(180*180 + 120*120)));
 	U16 diag = diagH*2;
 	U16 res_step = (U16)(180/resolution); // In resolution 1, each step has 1 degree.
 	U16 num_trans = diag*res_step;
 	U16 hough_space[num_trans];
-	printf("num_trans : %d\n", num_trans);
-	int width = 180, height = 120, r, c, i, j, theta;
-
+	int width = 180, height = 120, r, c, i;
+	U16 theta;
 	memset(hough_space, 0, num_trans*sizeof(U16));
+
 	for(r = 5; r < height - 5; r++){
 	for(c = 5; c < width - 5; c++){
 
 		// At each edge pixels
 		if(BLUE_VALUE_IN565(buf[180*r + c]) > threshold_value){
-			printf("selected pixel : y=%d, x=%d\n", r, c);
-			for(theta = 0; theta < res_step; theta++){
+			//printf("selected pixel : y=%d, x=%d\n", r, c);
+			for(theta = 0; theta < 180; theta += (U16)resolution){
 				int d = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
 				hough_space[d*res_step + theta]++;
+				//printf("theta%d : vote in index %d\n", theta, d*res_step+theta);
 			}
 		}
 
 	}
 	}
-
+/*
 	for(i = 0; i < diag; i++){
 		for(j = 0; j < res_step; j++){
-			printf("%d ", hough_space[180*i + j]/1000);////////////////1000????
+			printf("%d ", hough_space[res_step*i + j]);////////////////1000????
 		}
 		printf("\n");
 	}
-
+*/
 	int line_count = 0;
-	for(i = 0; (i < num_trans) && (line_count < num_line); i++){
+	for(i = 0; ((i < num_trans) && (line_count < num_line)); i++){
 		if(hough_space[i] > threshold_number){
-			printf("detected hough spot y : %d, x : %d\n", i/180, i%180);
+
 			p_radius[line_count] = (S16)((double)i/res_step);
-			p_theta[line_count] = (S16)(i - p_radius[line_count]*res_step)*resolution;
+			p_theta[line_count] = (i - p_radius[line_count]*res_step)*resolution;
 			p_radius[line_count] -= diagH;
+			printf("line detected. r : %d / theta : %d\n", p_radius[line_count], p_theta[line_count]);
 			line_count++;
 		}
 	}
+	printf("\n");
+
+	while(line_count--){
+		draw_line(buf, p_radius[line_count], p_theta[line_count]);
+	}
+
 	for(line_count = 0; line_count < num_line; line_count++){
-		printf("p_r : %d / p_t : %d\n", p_radius[line_count], p_theta[line_count]);
+		printf("line no. %d  p_r : %d / p_t : %d\n", line_count, p_radius[line_count], p_theta[line_count]);
 	}
 
 
 
 }
+// a = sin(theta)/cos(theta)
+void draw_line(U16* buf, S16 r, U16 theta){
+	S16 x, y;
+	U16 blue = 0x1f;
+	if(theta == 90){
+		return;
+	}
+	for(x = 0; x < 180; x++){
+		y = (S16)(-(mysin(theta)/mycos(theta))*x + r/mycos(theta));
+		if (x%20 ==0) {
+			printf("y : %d\n", y);
+		}
+		if(y >= 0 && y < 120) {
+			buf[180*y + x] = blue;
+		}
+	}
+	printf("----- r : %d, theta : %d\n", r, theta);
+}
+
+
 
 /*void buf_to_binaryfile(U16 *buf)
 {

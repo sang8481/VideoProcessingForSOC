@@ -41,11 +41,13 @@ static void demo(void)
 	U16* fpga_videodata = (U16*)malloc(180 * 120 * 2);
 	U16* grayed_data;
 	U16* processed_data;
-	RGB565* pixeldata = (RGB565*)malloc(2);
 	S16 maskX[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
 	S16 maskY[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
 	S32 gaussian_mask[9] = {113, 838, 113, 838, 6196, 838, 113, 838, 113};
-	S16* p_radius[30], p_theta[30];
+	S16* p_radius[30];
+	U16* p_theta[30];
+	memset(p_radius, 0, 30*sizeof(S16));
+	memset(p_theta, 0, 30*sizeof(U16));
 	int scale;
 	printf("Demo Start.\n");
 	while (i--)
@@ -58,7 +60,7 @@ static void demo(void)
 
 		// 1. Gray scaled data
 		grayed_data = gray_scale(fpga_videodata);
-		draw_fpga_video_data(grayed_data, 10, 150);
+
 
 		// 2. gaussian masking from 1.
 		mask_filtering(grayed_data, gaussian_mask);
@@ -69,14 +71,14 @@ static void demo(void)
 		draw_fpga_video_data(grayed_data, 10, 290);
 
 		// 4. hough transform from 3.
-		hough_lines(grayed_data, 50, 10, 30.0, 30, p_radius, p_theta);
+		hough_lines(grayed_data, 20, 10, 10.0, 15, p_radius, p_theta);
+		draw_fpga_video_data(grayed_data, 10, 150);
 
 		//free(processed_data);
 		free(grayed_data);
 		flip();
 	}
 	free(fpga_videodata);
-	free(pixeldata);
 	printf("Demo End\n");
 }
 
