@@ -621,12 +621,12 @@ angle
 */
 void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
                 double resolution, U16 num_line, S16* p_radius, U16* p_theta){
+	int width = 180, height = 120, r, c, i;
 	U16 diagH = (U16)(sqrt((double)(180*180 + 120*120)));
 	U16 diag = diagH*2;
 	U16 res_step = (U16)(180/resolution); // In resolution 1, each step has 1 degree.
 	U16 num_trans = diag*res_step;
 	U16 hough_space[num_trans];
-	int width = 180, height = 120, r, c, i;
 	U16 theta;
 	memset(hough_space, 0, num_trans*sizeof(U16));
 
