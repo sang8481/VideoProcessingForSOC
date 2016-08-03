@@ -633,11 +633,12 @@ void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
 	for(r = 5; r < height - 5; r++){
 	for(c = 5; c < width - 5; c++){
 
+		int distance;
 		// At each edge pixels
 		if(BLUE_VALUE_IN565(buf[180*r + c]) > threshold_value){
 			//printf("selected pixel : y=%d, x=%d\n", r, c);
 			for(theta = 0; theta < 180; theta += (U16)resolution){
-				int d = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
+				distance = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
 				hough_space[d*res_step + theta]++;
 				//printf("theta%d : vote in index %d\n", theta, d*res_step+theta);
 			}
