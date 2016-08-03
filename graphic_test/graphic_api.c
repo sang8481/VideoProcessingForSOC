@@ -502,6 +502,73 @@ void avr_rbg(U16* buf, RGB565* pixel){
 	pixel->r = rsum/(180*120);
 	return;
 }
+void rgb2yuv(U16* buf, YUV* yuv_pixel){
+   int width = 180;
+   int height = 120;
+   int r,c;
+   float tmp,Y,U,V;
+   U16 red = 0, green = 0, blue = 0;
+   float Ysum = 0, Usum = 0, Vsum = 0;
+   float midYsum = 0, midUsum = 0, midVsum = 0,
+   		LeftYsum = 0, LeftUsum = 0, LeftVsum = 0,
+		RightYsum = 0, RightUsum = 0, RightVsum = 0,
+		LMYsum = 0, LMUsum = 0, LMVsum = 0;
+   for(r = 0; r < height; r++){
+      for (c = 0; c < width; c++) {
+         red = RED_VALUE_IN565(buf[180*r + c]);
+		 blue = BLUE_VALUE_IN565(buf[180*r + c]);
+		 green = GREEN_VALUE_IN565(buf[180*r + c]);
+
+         Y = 0.299*red + 0.293*green + 0.114*blue;
+         U = 0.492*(0.886*blue - 0.299*red - 0.293*green);
+         V = 0.877*(0.701*red - 0.293*green - 0.114*blue);
+         if (r == 90 && c == 60) {
+            printf("<<In (90, 60) : >>\nrgb : %d, %d, %d / U : %0.3f, V : %0.3f\n", red, blue, green, U, V);
+		}
+		 Y *= 8;
+         U = U / 2;
+         V = V / 2;
+
+         Ysum += Y;
+         Usum += U;
+         Vsum += V;
+/*         if(r>=(height/3)&&r<=(2*height/3))
+         {
+            midYsum +=Y;
+            midUsum +=U;
+            midVsum +=V;
+         }*/
+         if(c >= 0 && c < (width/3))
+         {
+            LeftYsum +=Y;
+            LeftUsum +=U;
+            LeftVsum +=V;
+         }
+         else if(c>=(width/3)&&c<(2*width/3))
+         {
+            LMYsum +=Y;
+            LMUsum +=U;
+            LMVsum +=V;
+         }else
+         {
+            RightYsum +=Y;
+            RightUsum +=U;
+            RightVsum +=V;
+         }
+      }
+   }
+   tmp = Ysum / (180 * 120);
+   yuv_pixel->Y = tmp;
+    tmp = Usum / (180 * 120);
+    yuv_pixel->U = tmp;
+    tmp = Vsum / (180 * 120);
+    yuv_pixel->V = tmp;
+//   printf("midYsum : %f, midUsum : %f, midVsum : %f\n",(float)midYsum/(40*180), (float)midUsum/(40*180), (float)midVsum/(40*180));
+   printf("LY : %0.3f  / LU : %0.3f  / LV : %0.3f\n", LeftYsum/(120*60), LeftUsum/(120*60), LeftVsum/(120*60));
+   printf("LMY : %0.3f / LMU : %0.3f / LMV : %0.3f\n", LMYsum/(120*60), LMUsum/(120*60), LMVsum/(120*60));
+   printf("RY : %0.3f  / RU : %0.3f  / RV : %0.3f\n",(float)RightYsum/(120*60), (float)RightUsum/(120*60), (float)RightVsum/(120*60));
+   return;
+}
 
 // return allocated new image
 U16* gray_scale(U16* buf){
@@ -639,7 +706,7 @@ void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
 			//printf("selected pixel : y=%d, x=%d\n", r, c);
 			for(theta = 0; theta < 180; theta += (U16)resolution){
 				distance = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
-				hough_space[d*res_step + theta]++;
+				hough_space[distance*res_step + theta]++;
 				//printf("theta%d : vote in index %d\n", theta, d*res_step+theta);
 			}
 		}

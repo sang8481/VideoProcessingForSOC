@@ -98,6 +98,13 @@ typedef struct _tagRGB565
 	unsigned r : 5;
 } RGB565;
 
+typedef struct _tagYUV
+{
+  float Y;
+  float U;
+  float V;
+} YUV;
+
 typedef union
 {
 	U32 data32;

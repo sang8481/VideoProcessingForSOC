@@ -27,6 +27,7 @@ SURFACE* loadbmp(char* fname);
 int open_graphic(void);
 void close_graphic(void);
 
+void rgb2yuv(U16* buf, YUV* yuv_pixel);
 void mask_filtering(U16* buf, S32* mask);
 void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize);
 void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,

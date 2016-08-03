@@ -44,6 +44,7 @@ static void demo(void)
 	S16 maskX[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
 	S16 maskY[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
 	S32 gaussian_mask[9] = {113, 838, 113, 838, 6196, 838, 113, 838, 113};
+	YUV* yuv_PixelData = (YUV*)malloc(12);
 	S16* p_radius[30];
 	U16* p_theta[30];
 	memset(p_radius, 0, 30*sizeof(S16));
@@ -52,6 +53,25 @@ static void demo(void)
 	printf("Demo Start.\n");
 	while (i--)
 	{
+      clear_screen();
+      /*x = rand() % 300;
+      y = rand() % 460;
+      draw_rectfill(x, y, 20, 20, MAKE_COLORREF(255, 255, 0));
+      x = rand() % 300;
+      y = rand() % 460;
+      draw_rectfill(x, y, 20, 20, MAKE_COLORREF(255, 255, 0));*/
+      read_fpga_video_data(fpga_videodata);
+      rgb2yuv(fpga_videodata, yuv_PixelData);
+      printf("Y : %f, U : %f, V : %f\n",yuv_PixelData->Y,yuv_PixelData->U,yuv_PixelData->V);
+      //avr_rbg(fpga_videodata, pixeldata);
+      //printf("r : %d, g : %d, b : %d\n", pixeldata->r, pixeldata->g, pixeldata->b);
+      draw_fpga_video_data(fpga_videodata, 10, 200);
+      //mask_filtering(fpga_videodata, mean_mask(3), 3);
+      //draw_fpga_video_data(fpga_videodata, 10, 10);
+      flip();
+      //if (i%5 == 0) printf("i : %d\n", i);
+
+		/*
 		clear_screen();
 
 		// Raw fpga video data
@@ -76,7 +96,7 @@ static void demo(void)
 
 		//free(processed_data);
 		free(grayed_data);
-		flip();
+		flip();*/
 	}
 	free(fpga_videodata);
 	printf("Demo End\n");
