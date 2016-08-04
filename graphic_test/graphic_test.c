@@ -45,33 +45,35 @@ static void demo(void)
 	S16 maskY[9] = {1, 0, -1, 2, 0, -2, 1, 0, -1};
 	S32 gaussian_mask[9] = {113, 838, 113, 838, 6196, 838, 113, 838, 113};
 	YUV* yuv_PixelData = (YUV*)malloc(12);
-	S16* p_radius[30];
-	U16* p_theta[30];
+	uvset* decision_queue = (uvset*)malloc(8*5);
+	uvset* spec = (uvset*)malloc(8);
+	S16* p_radius = malloc(4*sizeof(S16));
+	U16* p_theta = malloc(4*sizeof(U16));
 	memset(p_radius, 0, 30*sizeof(S16));
 	memset(p_theta, 0, 30*sizeof(U16));
+	memset(decision_queue, 0, 10*sizeof(float));
+	memset(spec, 0, 2*sizeof(float));
 	int scale;
 	printf("Demo Start.\n");
 	while (i--)
 	{
-      clear_screen();
-      /*x = rand() % 300;
-      y = rand() % 460;
-      draw_rectfill(x, y, 20, 20, MAKE_COLORREF(255, 255, 0));
-      x = rand() % 300;
-      y = rand() % 460;
-      draw_rectfill(x, y, 20, 20, MAKE_COLORREF(255, 255, 0));*/
-      read_fpga_video_data(fpga_videodata);
-      rgb2yuv(fpga_videodata, yuv_PixelData);
-      printf("Y : %f, U : %f, V : %f\n",yuv_PixelData->Y,yuv_PixelData->U,yuv_PixelData->V);
-      //avr_rbg(fpga_videodata, pixeldata);
-      //printf("r : %d, g : %d, b : %d\n", pixeldata->r, pixeldata->g, pixeldata->b);
-      draw_fpga_video_data(fpga_videodata, 10, 200);
-      //mask_filtering(fpga_videodata, mean_mask(3), 3);
-      //draw_fpga_video_data(fpga_videodata, 10, 10);
-      flip();
-      //if (i%5 == 0) printf("i : %d\n", i);
-
 		/*
+		clear_screen();
+		read_fpga_video_data(fpga_videodata);
+		rgb2yuv(fpga_videodata, yuv_PixelData);
+		decision_queue_push(decision_queue, 5, yuv_PixelData->U, yuv_PixelData->V);
+		decision_queue_avg(decision_queue, 5, spec);
+		printf("Y : %0.3f, U : %0.3f, V : %0.3f\n",yuv_PixelData->Y,yuv_PixelData->U,yuv_PixelData->V);
+		printf("yuv decision queue : U : %0.3f, V : %0.3f\n\n", spec->u, spec->v);
+
+		//avr_rbg(fpga_videodata, pixeldata);
+		//printf("r : %d, g : %d, b : %d\n", pixeldata->r, pixeldata->g, pixeldata->b);
+		draw_fpga_video_data(fpga_videodata, 10, 200);
+		//mask_filtering(fpga_videodata, mean_mask(3), 3);
+		//draw_fpga_video_data(fpga_videodata, 10, 10);
+		flip();
+		*/
+
 		clear_screen();
 
 		// Raw fpga video data
@@ -91,14 +93,19 @@ static void demo(void)
 		draw_fpga_video_data(grayed_data, 10, 290);
 
 		// 4. hough transform from 3.
-		hough_lines(grayed_data, 20, 10, 10.0, 15, p_radius, p_theta);
+		hough_lines(grayed_data, 13, 5.0, 6, p_radius, p_theta);
 		draw_fpga_video_data(grayed_data, 10, 150);
 
 		//free(processed_data);
 		free(grayed_data);
-		flip();*/
+		flip();
 	}
 	free(fpga_videodata);
+	free(yuv_PixelData);
+	free(decision_queue);
+	free(spec);
+	free(p_radius);
+	free(p_theta);
 	printf("Demo End\n");
 }
 

@@ -503,71 +503,109 @@ void avr_rbg(U16* buf, RGB565* pixel){
 	return;
 }
 void rgb2yuv(U16* buf, YUV* yuv_pixel){
-   int width = 180;
-   int height = 120;
-   int r,c;
-   float tmp,Y,U,V;
-   U16 red = 0, green = 0, blue = 0;
-   float Ysum = 0, Usum = 0, Vsum = 0;
-   float midYsum = 0, midUsum = 0, midVsum = 0,
+    int width = 180;
+    int height = 120;
+    int r,c;
+    float tmp,Y,U,V;
+    U16 red = 0, green = 0, blue = 0;
+    float Ysum = 0, Usum = 0, Vsum = 0;
+    float midYsum = 0, midUsum = 0, midVsum = 0,
    		LeftYsum = 0, LeftUsum = 0, LeftVsum = 0,
 		RightYsum = 0, RightUsum = 0, RightVsum = 0,
-		LMYsum = 0, LMUsum = 0, LMVsum = 0;
-   for(r = 0; r < height; r++){
-      for (c = 0; c < width; c++) {
-         red = RED_VALUE_IN565(buf[180*r + c]);
-		 blue = BLUE_VALUE_IN565(buf[180*r + c]);
-		 green = GREEN_VALUE_IN565(buf[180*r + c]);
+		MYsum = 0, MUsum = 0, MVsum = 0;
 
-         Y = 0.299*red + 0.293*green + 0.114*blue;
-         U = 0.492*(0.886*blue - 0.299*red - 0.293*green);
-         V = 0.877*(0.701*red - 0.293*green - 0.114*blue);
-         if (r == 90 && c == 60) {
-            printf("<<In (90, 60) : >>\nrgb : %d, %d, %d / U : %0.3f, V : %0.3f\n", red, blue, green, U, V);
+    for(r = 0; r < height; r++){
+	for(c = 0; c < width; c++){
+	 	red = RED_VALUE_IN565(buf[180*r + c]);
+	 	blue = BLUE_VALUE_IN565(buf[180*r + c]);
+	 	green = GREEN_VALUE_IN565(buf[180*r + c]);
+
+	     Y = 0.299*red + 0.293*green + 0.114*blue;
+	     U = 0.492*(0.886*blue - 0.299*red - 0.293*green);
+	     V = 0.877*(0.701*red - 0.293*green - 0.114*blue);
+	     /*if (r == 90 && c == 60) {
+	        printf("<<In (90, 60) : >>\nrgb : %d, %d, %d / U : %0.3f, V : %0.3f\n", red, blue, green, U, V);
+		}*/
+	     Ysum += Y;
+	     Usum += U;
+	     Vsum += V;
+		 /*if(r>=(height/3)&&r<=(2*height/3))
+	     {
+	        midYsum +=Y;
+	        midUsum +=U;
+	        midVsum +=V;
+		}*/
+	    if(c >= 0 && c < (width/3))
+	    {
+	        /*LeftYsum +=Y;
+	        LeftUsum +=U;
+	        LeftVsum +=V;*/
 		}
-		 Y *= 8;
-         U = U / 2;
-         V = V / 2;
+		// (30<=r<60) && (45<=c<135) : total 270 pixels
+		else if( (c >= (width/4)) && (c < (3*width/4)) && (r >= height/4) && (r < height/2))
+		{
+			MYsum +=Y;
+			MUsum +=U;
+			MVsum +=V;
+		}else
+		{
+			/*RightYsum +=Y;
+			RightUsum +=U;
+			RightVsum +=V;*/
+		}
+	}
+	}
+	tmp = MYsum / (180 * 120);
+	yuv_pixel->Y = tmp;
+	tmp = MUsum / (180 * 120);
+	yuv_pixel->U = tmp;
+	tmp = MVsum / (180 * 120);
+	yuv_pixel->V = tmp;
 
-         Ysum += Y;
-         Usum += U;
-         Vsum += V;
-/*         if(r>=(height/3)&&r<=(2*height/3))
-         {
-            midYsum +=Y;
-            midUsum +=U;
-            midVsum +=V;
-         }*/
-         if(c >= 0 && c < (width/3))
-         {
-            LeftYsum +=Y;
-            LeftUsum +=U;
-            LeftVsum +=V;
-         }
-         else if(c>=(width/3)&&c<(2*width/3))
-         {
-            LMYsum +=Y;
-            LMUsum +=U;
-            LMVsum +=V;
-         }else
-         {
-            RightYsum +=Y;
-            RightUsum +=U;
-            RightVsum +=V;
-         }
-      }
-   }
-   tmp = Ysum / (180 * 120);
-   yuv_pixel->Y = tmp;
-    tmp = Usum / (180 * 120);
-    yuv_pixel->U = tmp;
-    tmp = Vsum / (180 * 120);
-    yuv_pixel->V = tmp;
-//   printf("midYsum : %f, midUsum : %f, midVsum : %f\n",(float)midYsum/(40*180), (float)midUsum/(40*180), (float)midVsum/(40*180));
-   printf("LY : %0.3f  / LU : %0.3f  / LV : %0.3f\n", LeftYsum/(120*60), LeftUsum/(120*60), LeftVsum/(120*60));
-   printf("LMY : %0.3f / LMU : %0.3f / LMV : %0.3f\n", LMYsum/(120*60), LMUsum/(120*60), LMVsum/(120*60));
-   printf("RY : %0.3f  / RU : %0.3f  / RV : %0.3f\n",(float)RightYsum/(120*60), (float)RightUsum/(120*60), (float)RightVsum/(120*60));
-   return;
+
+
+	//   printf("midYsum : %f, midUsum : %f, midVsum : %f\n",(float)midYsum/(40*180), (float)midUsum/(40*180), (float)midVsum/(40*180));
+	/*printf("LY : %0.3f  / LU : %0.3f  / LV : %0.3f\n", LeftYsum/(120*60), LeftUsum/(120*60), LeftVsum/(120*60));
+	printf("LMY : %0.3f / LMU : %0.3f / LMV : %0.3f\n", LMYsum/(120*60), LMUsum/(120*60), LMVsum/(120*60));
+	printf("RY : %0.3f  / RU : %0.3f  / RV : %0.3f\n",(float)RightYsum/(120*60), (float)RightUsum/(120*60), (float)RightVsum/(120*60));
+	*/return;
+}
+
+void decision_queue_push(uvset* decision_queue, int size, float u, float v){
+	int i, j;
+	// if queue not full
+	if(decision_queue[size-1].u == 0){
+		for(i = 0; i < size; i++){
+			if(decision_queue[i].u == 0){
+				decision_queue[i].u = u;
+				decision_queue[i].v = v;
+				break;
+			}
+		}
+	}
+	else{
+		for(i = 0; i < size-1; i++){
+			decision_queue[i] = decision_queue[i+1];
+		}
+		decision_queue[size-1].u = u;
+		decision_queue[size-1].v = v;
+	}
+}
+
+void decision_queue_avg(uvset* decision_queue, int size, uvset* ret){
+	float usum = 0, vsum = 0;
+	int i, item_count = 0;
+	for(i = 0; i < size; i++){
+		if(decision_queue[i].u != 0){
+			usum += decision_queue[i].u;
+			vsum += decision_queue[i].v;
+			item_count++;
+		}
+	}
+	if(item_count == 0) return;
+
+	ret->u = usum/item_count;
+	ret->v = vsum/item_count;
 }
 
 // return allocated new image
@@ -662,7 +700,7 @@ void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize){
 		}
 		}
 		// Clip this space.
-		absXY = CLIP5BIT((U16)sqrt(((double)sum_of_pixel_valueX*sum_of_pixel_valueX + sum_of_pixel_valueY*sum_of_pixel_valueY)/15));
+		absXY = (U16)sqrt(((double)sum_of_pixel_valueX*sum_of_pixel_valueX + sum_of_pixel_valueY*sum_of_pixel_valueY)/10);
 		//sum_of_pixel_valueX = (U16)CLIP5BIT((U16)sum_of_pixel_valueX);
 		//if (r == 100 && c == 100)printf("after absXY clib. 5bit in absXY : %X\n", BLUE_VALUE_IN565(absXY));
 		new_image[r*180 + c] = ((absXY) | (absXY<<6) | (absXY<<11));
@@ -673,22 +711,9 @@ void sobel_mask_filtering(U16* buf, S16* maskX, S16* maskY, int masksize){
 }
 
 
-/*Hough space
-
-180x120 x-y space to -->
-
-angle
-180
-| OOOOOOOOOOOOOOOOOOOOOO
-| OOOOOOOOOOOOOOOOOOOOOO
-| OOOOOOOOOOOOOOOOOOOOOO
-| OOOOOOOOOOOOOOOOOOOOOO
---------(diag)--------(diag*2)----->
-
-*/
-void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
+void hough_lines(U16* buf, U16 threshold_value,
                 double resolution, U16 num_line, S16* p_radius, U16* p_theta){
-	int width = 180, height = 120, r, c, i;
+	int width = 180, height = 120, r, c, i, j, k;
 	U16 diagH = (U16)(sqrt((double)(180*180 + 120*120)));
 	U16 diag = diagH*2;
 	U16 res_step = (U16)(180/resolution); // In resolution 1, each step has 1 degree.
@@ -706,41 +731,46 @@ void hough_lines(U16* buf, U16 threshold_number, U16 threshold_value,
 			//printf("selected pixel : y=%d, x=%d\n", r, c);
 			for(theta = 0; theta < 180; theta += (U16)resolution){
 				distance = (int)(c*mysin(theta) + r*mycos(theta) + diagH + 0.5);
-				hough_space[distance*res_step + theta]++;
-				//printf("theta%d : vote in index %d\n", theta, d*res_step+theta);
+				hough_space[distance*res_step + (U16)(theta/resolution)]++;
 			}
 		}
 
 	}
 	}
-/*
-	for(i = 0; i < diag; i++){
-		for(j = 0; j < res_step; j++){
-			printf("%d ", hough_space[res_step*i + j]);////////////////1000????
+
+	int highest_voted_pixel[6] = {0, 0, 0, 0, 0, 0};
+	int highest_voted_pixel_index[6] = {0, 0, 0, 0, 0, 0};
+
+	for(i = 0; i < num_trans; i++){
+		if(hough_space[i] >= highest_voted_pixel[0]){
+			// push highest_voted_pixel, index array
+			for(j = 5; (j >= 0) && (hough_space[i] >= highest_voted_pixel[j]); j--){
+				for(k = 1; k < j + 1; k++){
+					highest_voted_pixel[k-1] = highest_voted_pixel[k];
+					highest_voted_pixel_index[k-1] = highest_voted_pixel_index[k];
+				}
+				highest_voted_pixel[j] = hough_space[i];
+				highest_voted_pixel_index[j] = i;
+				break;
+			}
 		}
-		printf("\n");
-	}
-*/
-	int line_count = 0;
-	for(i = 0; ((i < num_trans) && (line_count < num_line)); i++){
-		if(hough_space[i] > threshold_number){
-
-			p_radius[line_count] = (S16)((double)i/res_step);
-			p_theta[line_count] = (i - p_radius[line_count]*res_step)*resolution;
-			p_radius[line_count] -= diagH;
-			printf("line detected. r : %d / theta : %d\n", p_radius[line_count], p_theta[line_count]);
-			line_count++;
-		}
-	}
-	printf("\n");
-
-	while(line_count--){
-		draw_line(buf, p_radius[line_count], p_theta[line_count]);
 	}
 
-	for(line_count = 0; line_count < num_line; line_count++){
+	for(i = 0; i < 6; i++){
+		p_radius[i] = (S16)(highest_voted_pixel_index[i]/res_step);
+		p_theta[i] = (highest_voted_pixel_index[i] - p_radius[i]*res_step)*resolution;
+		p_radius[i] -= diagH;
+		//printf("line detected. voted : %d, index : %d,  r : %d / theta : %d\n", highest_voted_pixel[i], highest_voted_pixel_index[i], p_radius[i], p_theta[i]);
+		//printf("\n");
+	}
+
+	for(i = 0; i < 6; i++){
+		draw_line(buf, p_radius[i], p_theta[i]);
+	}
+
+	/*for(line_count = 0; line_count < num_line; line_count++){
 		printf("line no. %d  p_r : %d / p_t : %d\n", line_count, p_radius[line_count], p_theta[line_count]);
-	}
+	}*/
 
 
 
@@ -755,14 +785,15 @@ void draw_line(U16* buf, S16 r, U16 theta){
 	for(x = 0; x < 180; x++){
 		y = (S16)(-(mysin(theta)/mycos(theta))*x + r/mycos(theta));
 		if (x%20 ==0) {
-			printf("y : %d\n", y);
+			//printf("y : %d\n", y);
 		}
 		if(y >= 0 && y < 120) {
 			buf[180*y + x] = blue;
 		}
 	}
-	printf("----- r : %d, theta : %d\n", r, theta);
+	//printf("----- r : %d, theta : %d\n", r, theta);
 }
+
 
 
 

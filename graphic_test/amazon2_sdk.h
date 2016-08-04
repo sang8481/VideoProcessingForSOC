@@ -105,6 +105,12 @@ typedef struct _tagYUV
   float V;
 } YUV;
 
+typedef struct _uvset
+{
+    float u;
+    float v;
+} uvset;
+
 typedef union
 {
 	U32 data32;
